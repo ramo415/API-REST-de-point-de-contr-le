@@ -1,0 +1,105 @@
+ 1. Initialisation du projet
+
+npm init -y
+npm install express mongoose dotenv
+
+2. Structure du projet
+
+ project-folder/
+├──  config/
+│   └── .env
+├──  modèles/
+│   └── User.js
+├── server.js
+├── package.json
+
+ 3. Fichier .env (dans config/.env)
+
+MONGO_URI='votre_chaine_de_connexion_MongoDB'
+PORT=5000
+
+4. Fichier modèles/User.js
+
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, unique: true, required: true },
+  age: Number,
+});
+
+module.exports = mongoose.model('User', userSchema);
+
+5. Fichier server.js
+
+require('dotenv').config({ path: './config/.env' }); // Charger les variables d’environnement
+const express = require('express');
+const mongoose = require('mongoose');
+const User = require('./modèles/User');
+
+const app = express();
+
+app.use(express.json());
+
+
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log(" Connexion à MongoDB réussie"))
+.catch(err => console.error(" Échec de connexion :", err));
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const newUser = new User(req.body); // Utilise les données du corps de la requête
+    const savedUser = await newUser.save();
+    res.status(201).json(savedUser);
+  } catch (err) {
+    res.status(400).json({ message: 'Échec de création', error: err.message });
+  }
+});
+
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id, // ID passé dans l'URL
+      req.body, // Données à mettre à jour
+      { new: true, runValidators: true } // Retourne le document mis à jour
+    );
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    res.status(400).json({ message: 'Échec de la mise à jour', error: err.message });
+  }
+});
+
+
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    if (!deletedUser) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    res.status(200).json({ message: 'Utilisateur supprimé', user: deletedUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur de suppression', error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(` Serveur lancé sur http://localhost:${PORT}`));
+
+ 6. Test avec Postman
+
+{
+  "name": "Alice",
+  "email": "alice@example.com",
+  "age": 25
+}
